@@ -1,7 +1,407 @@
 import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-st.title("🎈 My new app")
+st.title("Project Framingham Heart Disease - Group 7")
 st.write(
-    "Let's start building! For help and inspiration, head over to [docs.streamlit.io](https://docs.streamlit.io/)."
+    "The Framingham Heart Study is a long-term study of cardiovascular disease that identified risks factors and their join effects." \
+    " There are 4434 patients, each of them with 3 examination periods every 6 years. The outcome is: angina pectoris, myocardial infraction, Atherothrombotic Infarction or Cerebral Hemorrhage (Stroke) or death."
 )
-"# Heading 2"
+
+#data loading
+cvd = pd.read_csv('https://raw.githubusercontent.com/LUCE-Blockchain/Databases-for-teaching/refs/heads/main/Framingham%20Dataset.csv')
+
+#first look at the data
+st.dataframe(cvd.head())
+
+#observations about the data
+st.write(
+    "The dataset contains 39 features inclding: demographic informations, clinical measurements, physiological risks factors, lifestyle, medications, baseline disease status, and follow up outcomes." 
+
+)
+
+#formulation of the research question
+st.title(
+    'Can we predict wheater a patient dies based on his baseline health indicators?'
+)
+
+st.markdown(
+    """
+    To answer this research question, we created a subset of the original dataframe:
+
+    - only patients from period 1 were selected
+    - all the variables related to time were dropped 
+    - HDL and LDL cholesterol were dropped as they were not available for period 1
+
+
+    """
+)
+
+#we performed metadata enrichment to add more context to the data and its visualization
+#metadata enrichment
+cvd['SEX'] = cvd['SEX'].replace({2: 'female', 1:'male'})
+cvd['CURSMOKE'] = cvd['CURSMOKE'].replace({0: 'not current smoker', 1:'current smoker'})
+cvd['DIABETES'] = cvd['DIABETES'].replace({0: 'not a diabetic', 1:'diabetic'})
+cvd['BPMEDS'] = cvd['BPMEDS'].replace({0: 'not currently used', 1:'current use'})
+cvd['PREVAP'] = cvd['PREVAP'].replace({0: 'free of disease', 1:'prevalent disease'})
+cvd['PREVSTRK'] = cvd['PREVSTRK'].replace({0: 'free of disease', 1:'prevalent disease'})
+cvd['PREVMI'] = cvd['PREVMI'].replace({0: 'free of disease', 1:'prevalent disease'})
+cvd['PREVCHD'] = cvd['PREVCHD'].replace({0: 'free of disease', 1:'prevalent disease'})
+cvd['PREVHYP'] = cvd['PREVHYP'].replace({0: 'free of disease', 1:'prevalent disease'})
+cvd['PERIOD'] = cvd['PERIOD'].replace({1: 'period 1', 2:'period 2', 3:'period 3'})
+cvd['DEATH'] = cvd['DEATH'].replace({0: 'survived', 1:'died'})
+cvd['ANGINA'] = cvd['ANGINA'].replace({0: 'did not occur during followup', 1:'did occur during followup'})
+cvd['HOSPMI'] = cvd['HOSPMI'].replace({0: 'did not occur during followup', 1:'did occur during followup'})
+cvd['MI_FCHD'] = cvd['MI_FCHD'].replace({0: 'did not occur during followup', 1:'did occur during followup'})
+cvd['ANYCHD'] = cvd['ANYCHD'].replace({0: 'did not occur during followup', 1:'did occur during followup'})
+cvd['STROKE'] = cvd['STROKE'].replace({0: 'did not occur during followup', 1:'did occur during followup'})
+cvd['CVD'] = cvd['CVD'].replace({0: 'did not occur during followup', 1:'did occur during followup'})
+cvd['HYPERTEN'] = cvd['HYPERTEN'].replace({0: 'did not occur during followup', 1:'did occur during followup'})
+cvd['educ'] = cvd['educ'].replace({1: 'higher secondary', 2:'graduation', 3:'post graduation', 4: 'PhD'})
+
+#subset creation
+cvd_death = cvd.loc[(cvd['PERIOD'] == 'period 1')]
+cvd_death = cvd_death.drop(columns = ['TIMEAP', 'TIMEMI', 'TIMEMIFC', 'TIMECHD', 'TIMESTRK', 'TIMECVD', 'TIMEHYP', 'HDLC', 'LDLC', 'TIME'])
+cvd_death['DEATH'] = cvd_death['DEATH'].replace({0: 'survived', 1:'died'})
+
+
+#final subest 
+st.write("The final subset contains the following number of rows and columns (patients and features respectively):")
+cvd_death.shape
+
+#displaying the columns of the final subset
+st.write("The final subset contains the following features:")
+cvd_death.columns
+
+#statistics of numerical variables
+st.write("Here are some statistics of the numerical variables in the final subset:")
+st.dataframe(cvd_death.describe())
+
+#addressing missing values
+st.write(
+    """
+    *Missing values handling*
+
+    There are few missing values present in this subset:  
+    between *0.02% and 9%* across *7 attributes*.
+
+    It was decided to impute the missing values *after the train/test split*, as common practice.
+
+    *Imputation strategy:*
+    - Numerical variables were imputed using *KNN imputation (k = 5)*
+    - Categorical variables were imputed using the *mode (most frequent value)*
+    """
+)
+#calculating missing values percentage
+missing_percentage = cvd_death.isnull().mean() * 100
+missing_percentage = missing_percentage[missing_percentage > 0]
+
+#visual rapresentation of the missing data
+fig, ax = plt.subplots()
+ax.set(title="Missing data", xlabel="Percent missing", ylabel="Variable", xlim=[0, 10]);
+#orizontal bar
+bars = ax.barh(missing_percentage.index, missing_percentage.values, color = 'lightblue', edgecolor = 'black')
+ax.bar_label(bars);
+st.pyplot(fig)
+
+#outliers
+st.write(
+    """
+    *Outliers handling*
+    - 
+    """
+)
+
+num_variables = ['TOTCHOL', 'AGE', 'SYSBP', 'DIABP', 'CIGPDAY', 'BMI', 'HEARTRTE', 'GLUCOSE']
+var_names = {
+    'TOTCHOL' : 'Total Cholesterol (mg/dL)',
+    'AGE' : 'Age',
+    'SYSBP' : 'Systolic Blood Pressure (mmHg)',
+    'DIABP' : 'Diastolic Bloop Pressure (mmHg)',
+    'CIGPDAY' : 'Number of cigarettes per day',
+    'BMI' : 'Body Mass Index',
+    'HEARTRTE' : 'Heart Rate',
+    'GLUCOSE' : 'Glucose'
+
+}
+selected_variable = st.selectbox(
+    "Select a numeric variable to visualize",
+    num_variables
+)
+
+fig, ax = plt.subplots()
+
+sns.boxplot(
+    data=cvd_death[selected_variable],
+    orient="v",
+    ax=ax       
+)
+
+ax.set(
+    title=var_names[selected_variable],
+    xlabel=var_names[selected_variable],
+    ylabel='Value'
+)
+
+st.pyplot(fig)  
+
+st.write(
+    '''
+- colesterol lower than 120 and higher than 500 are probably outliers --> impute!
+- there are no outliers for age
+- systolic blood pressure, possible in a diseased condition
+- dyastolic blood pressure, possible in a diseased condition
+- bmi higher than 35 reflects an obese condition
+- heart rate is plausible
+- very high glucose levels indicate diabetes'''
+)
+
+st.title("Distribution of numerical variables")
+#distribution of the data
+selected_hist = st.selectbox("Select a numeric variable to visualize", num_variables, key="hist_selectbox")
+
+# Histogram
+fig2, ax = plt.subplots()
+
+ax.hist(cvd_death[selected_hist], edgecolor='black', bins=20, color='lightblue')
+
+ax.set(title=var_names[selected_hist], xlabel=var_names[selected_hist], ylabel='Count')
+
+st.pyplot(fig2)
+
+#visualization of categorical variables
+
+#identification of categorical variables
+categorical_variables = ['SEX', 'CURSMOKE', 'DIABETES', 'BPMEDS','PREVCHD', 'PREVAP', 'PREVMI', 'PREVSTRK', 'PREVHYP', 'ANGINA', 'HOSPMI', 'MI_FCHD', 'ANYCHD', 'STROKE', 'CVD', 'HYPERTEN','DEATH', 'educ']
+
+#creation fo a dictionary with metadata description
+categorical_names = {
+    'SEX': 'Sex',
+    'CURSMOKE': 'Current Smoking Status',
+    'DIABETES': 'Diabetes Status',
+    'BPMEDS': 'Use of Blood Pressure Medications',
+    'PREVAP': 'Prevalent Angina Pectoris',
+    'PREVMI': 'Prevalent Miocardial Infraction',
+    'PREVSTRK': 'Prevalent Stroke',
+    'PREVHYP': 'Prevalent Hypertension',
+    'ANGINA': 'Presence of Angina at the time of collection',
+    'HOSPMI': 'Hospitalized for Myocardial Infraction',
+    'MI_FCHD': 'Hospitalized Myocardial Infarction or Fatal Coronary Heart Disease',
+    'ANYCHD': 'Any Form of Coronary Heart Disease',
+    'STROKE': 'Stroke Event Follow-up',
+    'CVD': 'Any Cardiovascular Disease Event Follow-up',
+    'HYPERTEN': 'Hypertension Follow-up',
+    'educ': 'Education Level',
+    'PREVCHD': 'Plevalent Coronary Heart Disease',
+    'DEATH': 'Death'
+}
+
+#barplot to visualize categorical variables
+st.title('Categorical variables')
+selected_bar = st.selectbox("Select a categorical variable to visualize", categorical_variables, key="barplot")
+
+fig3, ax = plt.subplots()
+counts = cvd_death[selected_bar].value_counts()
+ax.bar(counts.index, counts.values, edgecolor='black', color = ['lightblue', 'lightpink'])
+ax.bar_label(ax.containers[0])
+ax.set(title= categorical_names[selected_bar], xlabel= categorical_names[selected_bar], ylabel= 'Count')
+st.pyplot(fig3)
+
+#visualization of the target variable 
+
+# Distribution of DEATH
+st.write('*Death distribution*')
+death_counts = cvd_death['DEATH'].value_counts()
+
+fig, ax = plt.subplots()
+
+ax.pie(death_counts.values, labels=['Alive', 'Dead'], autopct='%1.1f%%', startangle=90, colors=['lightblue', 'pink'])
+
+ax.set(title='Distribution of Death Outcome')
+
+# Show in Streamlit
+st.pyplot(fig)
+
+
+
+#bivariate analysis
+st.title('Bivariate analysis')
+
+#categorical variables vs death
+selected_cat = st.selectbox("Select a categorical variable to visualize", categorical_variables, key="categorical_barplot")
+
+counts = cvd_death.groupby(['DEATH', selected_cat]).size().unstack()
+
+# Bar plot
+ax = counts.plot(kind='bar', edgecolor='black', color=['pink', 'lightblue', 'lightgreen', 'lightyellow'], rot=0)
+
+ax.set(title=categorical_names[selected_cat], xlabel=categorical_names[selected_cat], ylabel='Count')
+
+st.pyplot(ax.figure)
+
+#gropbyfuction to see the difference between died and survived for the categorical variables
+
+st.write('Difference in numerical variables for death and survived')
+mean_table = cvd_death.groupby('DEATH')[num_variables].mean()
+
+st.dataframe(mean_table)
+
+# Final dataframe and features
+st.title("Preparing the data for our models")
+st.write(""" 
+         *Features used in the model*
+         -
+          """)
+st.write("Several time-related features were removed from the dataframe, and the dataframe was split into X and y which resulted in these final dataframes:")
+
+cvd_death['DEATH'] = cvd_death['DEATH'].replace({'survived': 0, 'died': 1});
+X = cvd_death[['SEX', 'CURSMOKE', 'DIABETES', 'BPMEDS', 'PREVCHD', 'PREVAP',
+                'PREVMI', 'PREVSTRK', 'PREVHYP', 'ANGINA', 'HOSPMI', 'MI_FCHD',
+                'ANYCHD', 'STROKE', 'CVD', 'HYPERTEN', 'educ', 'TOTCHOL', 'AGE',
+                'SYSBP', 'DIABP', 'CIGPDAY', 'BMI', 'HEARTRTE', 'GLUCOSE']]
+
+y = cvd_death['DEATH']
+
+st.write("X (" + str(len(X.columns)) + " features): ", )
+st.dataframe(X.head(3))
+st.write("y (outcome is " + str(y.name.lower()) + "):")
+st.dataframe(y.head(3))
+
+#Train Test Split
+
+from sklearn.model_selection import train_test_split
+train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.2, random_state=1)
+
+st.write(""" 
+         *Train-Test split*
+         -
+         The dataframe was split into a training and testing set using sklearn train_test_split with randomstate = 1 and test_size = 0.2)
+         This created: 
+         - train_X
+         - test_X
+         - train_y
+         - test_y
+         """)
+
+
+st.write("The train sets have " + str(train_X.shape[0]) + " rows, "
+         "and the test sets have " + str(test_X.shape[0]) + " rows")
+
+# Imputing missing data
+st.write(""" 
+         *Missing data imputation*
+         -
+         The missing data in these train sets were then imputed using:
+         - The KNN imputer from sklearn using 5 n-nearest neighbours was applied to numerical features
+         - The simple imputer from sklearn using the mode was applied to catagorical features
+         - The imputers were fitted only on train data and then applied to test to avoid data leakage
+          """)
+
+from sklearn.impute import KNNImputer, SimpleImputer
+import numpy as np
+
+# Create list of numeric and catagorical features:
+NumCols = train_X.select_dtypes(include = "number").columns
+CatCol = train_X.select_dtypes(include=['object']).columns
+
+#See missing data
+MissingCheck = train_X.isnull().sum()
+MissingCols = MissingCheck[MissingCheck > 0]
+MissingCols = MissingCols.rename("Missing count")
+
+# Getting a list for later use
+missing_col_names = MissingCols.index.tolist()
+
+#Displaying missing data
+st.write("""
+         The tables and graphs below show train_X for the full picture since test_X had less columns with missing values
+         
+         Columns with missing values:
+         
+         """)
+st.write(MissingCols)
+
+#Copies so they can still be plotted after imputations to compare
+train_X_NoImpute = train_X.copy()
+
+# KNN imputation
+imputer = KNNImputer(n_neighbors = 5)
+train_X[NumCols] = imputer.fit_transform(train_X[NumCols])
+test_X[NumCols] = imputer.transform(test_X[NumCols])
+
+# Mode imputation
+cat_imputer = SimpleImputer(missing_values=np.nan, strategy="most_frequent")
+train_X[CatCol] = cat_imputer.fit_transform(train_X[CatCol])
+test_X[CatCol] = cat_imputer.transform(test_X[CatCol])
+
+# Creating a select box for a feature to check
+selected_discheck = st.selectbox("Select a feature to check if distributions after imputation are the similar and have not been affected:", 
+                                 missing_col_names,
+                                 key="discheck")
+
+#Checking if a histogram or bar graph should be displayed by seeing if the column is numerical or catagorical
+if selected_discheck in NumCols: 
+    # Making a single figure that has two graphs made next to eachother
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize = (10, 5))
+
+    #Graph one before impute
+    ax1.hist(train_X_NoImpute[selected_discheck],
+             bins = 10, 
+             edgecolor='black', 
+             color = 'lightblue')
+    ax1.set(
+        title = "Distribution before imputation",
+        xlabel = var_names[selected_discheck],
+        ylabel = "Value"
+    )
+
+    #Graph two after impute
+    ax2.hist(train_X[selected_discheck],
+            bins = 10, 
+            edgecolor='black', 
+            color = 'lightblue')
+    ax2.set(
+        title = "Distribution after imputation",
+        xlabel = var_names[selected_discheck],
+        ylabel = "Value"
+    )
+
+    st.pyplot(fig)
+else:
+    # Making a single figure that has two graphs made next to eachother
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize = (15, 5))
+    
+    # Creating counts before and after the imputation
+    counts_before = train_X_NoImpute[selected_discheck].value_counts().sort_index()
+    counts_after = train_X[selected_discheck].value_counts().sort_index()
+
+    #Graph one before impute
+    ax1.bar(counts_before.index,
+            counts_before.values, 
+             edgecolor='black', 
+             color = ['lightblue', "lightpink"])
+    ax1.set(
+        title = "Count before imputation",
+        xlabel = categorical_names[selected_discheck],
+        ylabel = "Value"
+    )
+
+    #Graph two after impute
+    ax2.bar(counts_after.index,
+            counts_after.values, 
+             edgecolor='black', 
+             color = ['lightblue', "lightpink"])
+    ax2.set(
+        title = "Count after imputation",
+        xlabel = categorical_names[selected_discheck],
+        ylabel = "Value"
+    )
+
+    st.pyplot(fig)
+
+# Scaling
+st.write(""" 
+         *Scaling of the data*
+         -
+         """)

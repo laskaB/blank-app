@@ -400,8 +400,44 @@ else:
 
     st.pyplot(fig)
 
+#Encoding
+
+train_X = pd.get_dummies(train_X, columns=CatCol, drop_first=True, dtype=float)
+test_X = pd.get_dummies(test_X, columns=CatCol, drop_first=True, dtype=float)
+
+#Checking if the columns still match and no different dummies were made. Converted to a set so the order is not important
+if set(train_X.columns) == set(test_X.columns):
+    st.write("""
+         *Encoding*
+         -
+         All catagorical variables were encoded using get_dummies from pandas, 
+         where the first dummy created is dropped since this would be redundant. 
+         The datatype is also changed to float so it can be used in the models. 
+         """)
+else:
+    st.write("COLUMNS DONT MATCH") #To visually check if everything is right
+
 # Scaling
-st.write(""" 
-         *Scaling of the data*
+from sklearn.preprocessing import StandardScaler
+
+# Loop to make a scaler for every column and then fits it on train and applies it to test and train
+for column in NumCols:
+    scaler = StandardScaler()
+    scaler.fit(train_X[[column]]) 
+    train_X[column] = scaler.transform(train_X[[column]])
+    test_X[column] = scaler.transform(test_X[[column]])
+
+st.write("""
+         *Scaling*
+         -
+         All numerical features were scaled using the StandardScaler from sklearn. 
+         This was first fitted on the train set and then the train and test 
+         set were scaled using this scaler to avoid data leakage.
+         """)
+
+# Modelling
+st.title("Modelling")
+st.write("""
+         *Inital model*
          -
          """)

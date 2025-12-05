@@ -569,14 +569,14 @@ def ModelOutput(modelselectionanswer, subsetselectionanswer):
         subsetused = train_X.columns
 
     #Everything after this for models, needs to be done for every model
-    model.fit(train_X[subsetused], train_y[subsetused])
-    pred_y = model.predict(test_X)
+    model.fit(train_X[subsetused], train_y)
+    pred_y = model.predict(test_X[subsetused])
 
     from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay
 
     #This does not display nicely like it does in google colab
     Dict = (classification_report(test_y, pred_y, output_dict=True))  #Output into a dict, otherwise st.table will give an arror about it being a string
-    Fig = ConfusionMatrixDisplay.from_estimator(model, test_X, test_y)
+    Fig = ConfusionMatrixDisplay.from_estimator(model, test_X[subsetused], test_y)
     Fig = Fig.figure_ 
 
     #Since its now a dictionairy, we have to change the keys by removing the old ones

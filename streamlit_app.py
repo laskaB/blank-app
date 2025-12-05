@@ -482,33 +482,60 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.feature_selection import RFE
 
-modeltypes = ["Logistic Regression", "SVM", "RFC"]
-SelectedModelWrap = st.selectbox("Please select a model:", 
-                            modeltypes,
-                            key="modelselwrap")
-
-if SelectedModelWrap == "Logistic Regression":
-    estimator = LogisticRegression(class_weight='balanced', max_iter=1000)
-elif SelectedModelWrap == "SVM":
-    estimator = SVC(kernel="linear", class_weight="balanced")
-else:
-    estimator = RandomForestClassifier(n_estimators=200, random_state=42, max_depth = 10) # Added maxdepth because it will take a long time otherwise, for the final RFC it will not be needed
-
+#LogSelectionWrapper
+estimator = LogisticRegression(class_weight='balanced', max_iter=1000)
 selector = RFE(estimator,
                n_features_to_select=1, # Ranking now goes to 1, but this might not be best since wrapper looks at features together
                step=1)
-
 selector = selector.fit(train_X, train_y)
-
-featureRankingWrapper = pd.DataFrame(
+featureRankingWrapperLog = pd.DataFrame(
     data=selector.ranking_,
     index = list(train_X.columns),
     columns=['Feature ranking'])  
 
-fig, ax = plt.subplots(figsize = (5,7))
-sns.heatmap(featureRankingWrapper.sort_values(by = "Feature ranking", ascending = True), annot = True)
-plt.title("Wrapper feature selection ranking");
-st.pyplot(fig)
+#SVMSelectorWrapper
+estimator = SVC(kernel="linear", class_weight="balanced")
+selector = RFE(estimator,
+               n_features_to_select=1, 
+               step=1)
+selector = selector.fit(train_X, train_y)
+featureRankingWrapperSVM = pd.DataFrame(
+    data=selector.ranking_,
+    index = list(train_X.columns),
+    columns=['Feature ranking'])  
+
+#RFCSelectorWrapper
+estimator = RandomForestClassifier(n_estimators=200, random_state=42, max_depth = 10) # Added maxdepth because it will take a long time otherwise, for the final RFC it will not be needed
+selector = RFE(estimator,
+               n_features_to_select=1,
+               step = 1)
+selector = selector.fit(train_X, train_y)
+featureRankingWrapperRFC = pd.DataFrame(
+    data=selector.ranking_,
+    index = list(train_X.columns),
+    columns=['Feature ranking'])  
+#All rankings are already run even if not selected to reduce load time and we can use them later on for modeling
+
+#Selecting which to display
+modeltypes = ["Logistic Regression", "SVM", "RFC"]
+SelectedModelWrap = st.selectbox("Please select a model:", 
+                            modeltypes,
+                            key="modelselwrap")
+    
+#Function for heatmap display of wrapper
+def WrapperHeatmap(SelectedModelWrapDF):
+    fig, ax = plt.subplots(figsize = (5,7))
+    sns.heatmap(SelectedModelWrapDF.sort_values(by = "Feature ranking", ascending = True), annot = True)
+    plt.title("Wrapper feature selection ranking");
+    st.pyplot(fig)
+
+#Displaying right heatmap
+if SelectedModelWrap == "Logistic Regression":
+    WrapperHeatmap(featureRankingWrapperLog)
+elif SelectedModelWrap == "SVM":
+    WrapperHeatmap(featureRankingWrapperSVM)
+else: 
+    WrapperHeatmap(featureRankingWrapperRFC)
 
 # Modelling
 st.title("Modelling")
@@ -526,14 +553,15 @@ SelectSubset = st.selectbox("Please select the features to be used:",
 from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay
 
 model = LogisticRegression(class_weight='balanced', max_iter=1000)
-model.fit(train_X, train_y)
 
+#Everything after this for models, needs to be done for every model
+model.fit(train_X, train_y)
 pred_y = model.predict(test_X)
 
 #This does not display nicely like it does in google colab
-DictGeneral = (classification_report(test_y, pred_y, output_dict=True))  #Output into a dict, otherwise st.table will give an arror about it being a string
-FigGeneral = ConfusionMatrixDisplay.from_estimator(model, test_X, test_y)
-FigGeneral = FigGeneral.figure_ 
+Dict = (classification_report(test_y, pred_y, output_dict=True))  #Output into a dict, otherwise st.table will give an arror about it being a string
+Fig = ConfusionMatrixDisplay.from_estimator(model, test_X, test_y)
+Fig = Fig.figure_ 
 
 #Since its now a dictionairy, we have to change the keys by removing the old ones
 #All the others are also done, to keep the order the same. Otherwise survived and died would be at the end.
@@ -553,4 +581,4 @@ def Process_classification_report(Dict, Fig):
     st.pyplot(Fig)
 
 # using the function
-Process_classification_report(DictGeneral, FigGeneral)
+Process_classification_report(Dict, Fig)

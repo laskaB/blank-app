@@ -437,7 +437,37 @@ st.write("""
 
 # Modelling
 st.title("Modelling")
-st.write("""
-         *Inital model*
-         -
-         """)
+
+# General logistic model
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay
+
+model = LogisticRegression(class_weight='balanced', max_iter=1000)
+model.fit(train_X, train_y)
+
+pred_y = model.predict(test_X)
+
+#This does not display nicely like it does in google colab
+DictGeneral = (classification_report(test_y, pred_y, output_dict=True))  #Output into a dict, otherwise st.table will give an arror about it being a string
+FigGeneral = ConfusionMatrixDisplay.from_estimator(model, test_X, test_y)
+FigGeneral = FigGeneral.figure_ 
+
+#Since its now a dictionairy, we have to change the keys by removing the old ones
+#All the others are also done, to keep the order the same. Otherwise survived and died would be at the end.\
+#There is probably a more efficient way to do this but I could not find it
+#To avoid having to do this for every model I made a function:
+def Process_classification_report(Dict, Fig):
+    Acc = Dict["accuracy"]
+    
+    Dict["survived"] = Dict.pop("0")
+    Dict["died"] = Dict.pop("1")
+    Dict.pop("accuracy")
+    Dict["macro avg"] = Dict.pop("macro avg")
+    Dict["weighted avg"] = Dict.pop("weighted avg")
+
+    st.table(Dict)
+    st.write("Accuracy = " + str(round(Acc, 4)))
+    st.pyplot(Fig)
+
+# using the function
+Process_classification_report(DictGeneral, FigGeneral)

@@ -435,8 +435,76 @@ st.write("""
          set were scaled using this scaler to avoid data leakage.
          """)
 
+# Feature selection
+st.title("Feature selection")
+st.write("""
+         Feature selection was done on the basis of several (combined) methods:
+         - Statistical importance (Filter, Wrapper, Embedded)
+         - Related features
+         - Important features in literature
+
+        *Filter feature selection*
+         -
+         """)
+
+# Select best features based on ANOVA score
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_classif
+
+best_features = SelectKBest(score_func = f_classif, # f_classif is ANOVA F-score
+                            k = 'all') # uses all features, instead of default 10
+fit = best_features.fit(train_X, train_y)
+
+# Making it into a DF so it can be plotted well
+featureScores = pd.DataFrame(
+    data = fit.scores_,
+    index = list(train_X.columns),
+    columns = ['ANOVA Score'])
+
+# Plotting
+fig, ax = plt.subplots(figsize = (5,7))
+sns.heatmap(featureScores.sort_values(by = "ANOVA Score", ascending = False), annot = True)
+plt.title("Filter feature selection (ANOVA)");
+st.pyplot(fig)
+
+st.write("Filter feature selection shows....") # TO BE WRITTEN
+
+st.write("""
+         *Wrapper feature selection*
+         -
+         """)
+
+modeltypes = ["Logistic Regression", "SVM", "RFC"]
+SelectedModelWrap = st.selectbox("Please select a model:", 
+                            modeltypes,
+                            key="modelselwrap")
+
+if SelectedModelWrap == "Logistic Regression":
+
+
+
+  selector = RFE(estimator,
+               n_features_to_select=1, # Ranking now goes to 1, but this might not be best since wrapper looks at features together
+               step=1)
+
+selector = selector.fit(train_X, train_y)
+
+featureRankingWrapper = pd.DataFrame(
+    data=selector.ranking_,
+    index = list(train_X.columns),
+    columns=['Feature ranking'])  
+
 # Modelling
 st.title("Modelling")
+
+SelectedModel = st.selectbox("Please select a model:", 
+                            modeltypes,
+                            key="modelsel")
+
+subsets = ["All features", "Set 1", "Set 2"] # NEEDS TO BE UPDATED
+SelectSubset = st.selectbox("Please select the features to be used:", 
+                            subsets, 
+                            key = "subsetsel")
 
 # General logistic model
 from sklearn.linear_model import LogisticRegression
@@ -453,7 +521,7 @@ FigGeneral = ConfusionMatrixDisplay.from_estimator(model, test_X, test_y)
 FigGeneral = FigGeneral.figure_ 
 
 #Since its now a dictionairy, we have to change the keys by removing the old ones
-#All the others are also done, to keep the order the same. Otherwise survived and died would be at the end.\
+#All the others are also done, to keep the order the same. Otherwise survived and died would be at the end.
 #There is probably a more efficient way to do this but I could not find it
 #To avoid having to do this for every model I made a function:
 def Process_classification_report(Dict, Fig):
@@ -465,8 +533,8 @@ def Process_classification_report(Dict, Fig):
     Dict["macro avg"] = Dict.pop("macro avg")
     Dict["weighted avg"] = Dict.pop("weighted avg")
 
-    st.table(Dict)
     st.write("Accuracy = " + str(round(Acc, 4)))
+    st.table(Dict)
     st.pyplot(Fig)
 
 # using the function

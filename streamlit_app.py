@@ -439,13 +439,15 @@ st.write("""
 st.title("Feature selection")
 st.write("""
          Feature selection was done on the basis of several (combined) methods:
-         - Statistical importance (Filter, Wrapper, Embedded)
+         - Statistical importance (Filter, Wrapper)
          - Related features
          - Important features in literature
 
         *Filter feature selection*
          -
          """)
+
+st.write("Filter feature selection shows....") # TO BE WRITTEN
 
 # Select best features based on ANOVA score
 from sklearn.feature_selection import SelectKBest
@@ -467,12 +469,18 @@ sns.heatmap(featureScores.sort_values(by = "ANOVA Score", ascending = False), an
 plt.title("Filter feature selection (ANOVA)");
 st.pyplot(fig)
 
-st.write("Filter feature selection shows....") # TO BE WRITTEN
-
+# Wrapper selection
 st.write("""
          *Wrapper feature selection*
          -
+         Since wrapper feature selection looks at the variables in relation to eachother, 
+         the type of model is also infuential in the resulting ranking
          """)
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.feature_selection import RFE
 
 modeltypes = ["Logistic Regression", "SVM", "RFC"]
 SelectedModelWrap = st.selectbox("Please select a model:", 
@@ -480,10 +488,13 @@ SelectedModelWrap = st.selectbox("Please select a model:",
                             key="modelselwrap")
 
 if SelectedModelWrap == "Logistic Regression":
+    estimator = LogisticRegression(class_weight='balanced', max_iter=1000)
+elif SelectedModelWrap == "SVM":
+    estimator = SVC(kernel="linear", class_weight="balanced")
+else:
+    estimator = RandomForestClassifier(n_estimators=200, random_state=42, max_depth = 10) # Added maxdepth because it will take a long time otherwise, for the final RFC it will not be needed
 
-
-
-  selector = RFE(estimator,
+selector = RFE(estimator,
                n_features_to_select=1, # Ranking now goes to 1, but this might not be best since wrapper looks at features together
                step=1)
 
@@ -493,6 +504,11 @@ featureRankingWrapper = pd.DataFrame(
     data=selector.ranking_,
     index = list(train_X.columns),
     columns=['Feature ranking'])  
+
+fig, ax = plt.subplots(figsize = (5,7))
+sns.heatmap(featureRankingWrapper.sort_values(by = "Feature ranking", ascending = True), annot = True)
+plt.title("Wrapper feature selection ranking");
+st.pyplot(fig)
 
 # Modelling
 st.title("Modelling")
@@ -507,7 +523,6 @@ SelectSubset = st.selectbox("Please select the features to be used:",
                             key = "subsetsel")
 
 # General logistic model
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay
 
 model = LogisticRegression(class_weight='balanced', max_iter=1000)

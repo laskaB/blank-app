@@ -482,39 +482,47 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.feature_selection import RFE
 
-#LogSelectionWrapper
-estimator = LogisticRegression(class_weight='balanced', max_iter=1000)
-selector = RFE(estimator,
-               n_features_to_select=1, # Ranking now goes to 1, but this might not be best since wrapper looks at features together
-               step=1)
-selector = selector.fit(train_X, train_y)
-featureRankingWrapperLog = pd.DataFrame(
-    data=selector.ranking_,
-    index = list(train_X.columns),
-    columns=['Feature ranking'])  
+@st.cache_data
+def compute_feature_rankings(train_X, train_y):
+    #LogSelectionWrapper
+    estimator = LogisticRegression(class_weight='balanced', max_iter=1000)
+    selector = RFE(estimator,
+                n_features_to_select=1, # Ranking now goes to 1, but this might not be best since wrapper looks at features together
+                step=1)
+    selector = selector.fit(train_X, train_y)
+    featureRankingWrapperLog = pd.DataFrame(
+        data=selector.ranking_,
+        index = list(train_X.columns),
+        columns=['Feature ranking'])  
 
-#SVMSelectorWrapper
-estimator = SVC(kernel="linear", class_weight="balanced")
-selector = RFE(estimator,
-               n_features_to_select=1, 
-               step=1)
-selector = selector.fit(train_X, train_y)
-featureRankingWrapperSVM = pd.DataFrame(
-    data=selector.ranking_,
-    index = list(train_X.columns),
-    columns=['Feature ranking'])  
+    #SVMSelectorWrapper
+    estimator = SVC(kernel="linear", class_weight="balanced")
+    selector = RFE(estimator,
+                n_features_to_select=1, 
+                step=1)
+    selector = selector.fit(train_X, train_y)
+    featureRankingWrapperSVM = pd.DataFrame(
+        data=selector.ranking_,
+        index = list(train_X.columns),
+        columns=['Feature ranking'])  
 
-#RFCSelectorWrapper
-estimator = RandomForestClassifier(n_estimators=200, random_state=42, max_depth = 10) # Added maxdepth because it will take a long time otherwise, for the final RFC it will not be needed
-selector = RFE(estimator,
-               n_features_to_select=1,
-               step = 1)
-selector = selector.fit(train_X, train_y)
-featureRankingWrapperRFC = pd.DataFrame(
-    data=selector.ranking_,
-    index = list(train_X.columns),
-    columns=['Feature ranking'])  
+    #RFCSelectorWrapper
+    estimator = RandomForestClassifier(n_estimators=200, random_state=42, max_depth = 10) # Added maxdepth because it will take a long time otherwise, for the final RFC it will not be needed
+    selector = RFE(estimator,
+                n_features_to_select=1,
+                step = 1)
+    selector = selector.fit(train_X, train_y)
+    featureRankingWrapperRFC = pd.DataFrame(
+        data=selector.ranking_,
+        index = list(train_X.columns),
+        columns=['Feature ranking'])  
+    return (
+        featureRankingWrapperLog,
+        featureRankingWrapperSVM,
+        featureRankingWrapperRFC
+    )
 #All rankings are already run even if not selected to reduce load time and we can use them later on for modeling
+featureRankingWrapperLog, featureRankingWrapperSVM, featureRankingWrapperRFC = compute_feature_rankings(train_X, train_y)
 
 #Selecting which to display
 modeltypes = ["Logistic Regression", "SVM", "RFC"]
@@ -545,40 +553,50 @@ SelectedModel = st.selectbox("Please select a model:",
                             key="modelsel")
 
 subsets = ["All features", "Set 1", "Set 2"] # NEEDS TO BE UPDATED
-SelectSubset = st.selectbox("Please select the features to be used:", 
+SelectedSubset = st.selectbox("Please select the features to be used:", 
                             subsets, 
                             key = "subsetsel")
+def ModelOutput(modelselectionanswer, subsetselectionanswer):
+    #Checkign selected model
+    if modelselectionanswer == "Logistic Regression":
+        model = LogisticRegression(class_weight='balanced', max_iter=1000)
+    elif modelselectionanswer == "SVM":
+        model = SVC(class_weight='balanced', kernel="linear", probability=True)
+    else:
+            model = RandomForestClassifier(n_estimators=200, random_state=42,  class_weight="balanced", max_depth= 10)
 
-# General logistic model
-from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay
+    if subsetselectionanswer == "All features":
+        subsetused = train_X.columns
 
-model = LogisticRegression(class_weight='balanced', max_iter=1000)
+    #Everything after this for models, needs to be done for every model
+    model.fit(train_X[subsetused], train_y[subsetused])
+    pred_y = model.predict(test_X)
 
-#Everything after this for models, needs to be done for every model
-model.fit(train_X, train_y)
-pred_y = model.predict(test_X)
+    from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay
 
-#This does not display nicely like it does in google colab
-Dict = (classification_report(test_y, pred_y, output_dict=True))  #Output into a dict, otherwise st.table will give an arror about it being a string
-Fig = ConfusionMatrixDisplay.from_estimator(model, test_X, test_y)
-Fig = Fig.figure_ 
+    #This does not display nicely like it does in google colab
+    Dict = (classification_report(test_y, pred_y, output_dict=True))  #Output into a dict, otherwise st.table will give an arror about it being a string
+    Fig = ConfusionMatrixDisplay.from_estimator(model, test_X, test_y)
+    Fig = Fig.figure_ 
 
-#Since its now a dictionairy, we have to change the keys by removing the old ones
-#All the others are also done, to keep the order the same. Otherwise survived and died would be at the end.
-#There is probably a more efficient way to do this but I could not find it
-#To avoid having to do this for every model I made a function:
-def Process_classification_report(Dict, Fig):
-    Acc = Dict["accuracy"]
-    
-    Dict["survived"] = Dict.pop("0")
-    Dict["died"] = Dict.pop("1")
-    Dict.pop("accuracy")
-    Dict["macro avg"] = Dict.pop("macro avg")
-    Dict["weighted avg"] = Dict.pop("weighted avg")
+    #Since its now a dictionairy, we have to change the keys by removing the old ones
+    #All the others are also done, to keep the order the same. Otherwise survived and died would be at the end.
+    #There is probably a more efficient way to do this but I could not find it
+    #To avoid having to do this for every model I made a function:
+    def Process_classification_report(Dict, Fig):
+        Acc = Dict["accuracy"]
+                            
+        Dict["survived"] = Dict.pop("0")
+        Dict["died"] = Dict.pop("1")
+        Dict.pop("accuracy")
+        Dict["macro avg"] = Dict.pop("macro avg")
+        Dict["weighted avg"] = Dict.pop("weighted avg")
 
-    st.write("Accuracy = " + str(round(Acc, 4)))
-    st.table(Dict)
-    st.pyplot(Fig)
+        st.write("Accuracy = " + str(round(Acc, 4)))
+        st.table(Dict)
+        st.pyplot(Fig)
 
-# using the function
-Process_classification_report(Dict, Fig)
+    # using the function
+    Process_classification_report(Dict, Fig)
+
+ModelOutput(SelectedModel, SelectedSubset)

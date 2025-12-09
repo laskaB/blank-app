@@ -482,12 +482,17 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.feature_selection import RFE
 
+# Whenever we select models or change anything, the whole code would rerun and this would take a 
+# long time. 
+# I wanted to save eveything as a dataframe first, because I thought that would fix it like in colab,
+# but in streamlit it doesnt work because eveything is rerun top to bottom.
+# So I found this function that caches the data and that seems to work.
 @st.cache_data
 def compute_feature_rankings(train_X, train_y):
     #LogSelectionWrapper
     estimator = LogisticRegression(class_weight='balanced', max_iter=1000)
     selector = RFE(estimator,
-                n_features_to_select=1, # Ranking now goes to 1, but this might not be best since wrapper looks at features together
+                n_features_to_select=1, # Ranking now goes to 1 instead of having top 5
                 step=1)
     selector = selector.fit(train_X, train_y)
     featureRankingWrapperLog = pd.DataFrame(
@@ -525,12 +530,11 @@ def compute_feature_rankings(train_X, train_y):
 #All rankings are already run even if not selected to reduce load time and we can use them later on for modeling
 featureRankingWrapperLog, featureRankingWrapperSVM, featureRankingWrapperRFC = compute_feature_rankings(train_X, train_y)
 
-#Extracting top15 lists
+#Extracting top15 lists for later 
 Top15LogWrap = featureRankingWrapperLog.sort_values(by = "Feature ranking", ascending = True).head(15).index.tolist()
 Top15SVMWrap = featureRankingWrapperSVM.sort_values(by = "Feature ranking", ascending = True).head(15).index.tolist()
 Top15RFCWrap = featureRankingWrapperRFC.sort_values(by = "Feature ranking", ascending = True).head(15).index.tolist()
 Top15Filter = featureScores.sort_values(by = 'ANOVA Score', ascending = False).head(15).index.tolist()
-
 
 #Selecting which to display
 modeltypes = ["Logistic Regression", "SVM", "RFC"]
@@ -553,6 +557,28 @@ elif SelectedModelWrap == "SVM":
 else: 
     WrapperHeatmap(featureRankingWrapperRFC)
 
+st.write("""
+         *Custom features set*
+         - 
+
+        Most features such as age, diabetes and other clinical markers prevalent in 
+        literature also showed up as the best predictors for out models. Thus most of these were included. 
+        Features that did not consitantly rank high such as smoking, cigarettes per day and heartrate, 
+        are still important in literature and are kept in.
+        
+         Consistantly low ranking features are:
+        - REVSTRK and PREVMI were redundant once stronger variables capturing cardiovascular and 
+         cerebrovascular events (e.g., MI_FCHD, CVD_did occur, STROKE_did occur) were included, 
+         leading to collinearity without improving prediction.
+        - BPMEDS showed the lowest importance overall due to strong confounding
+          (medication can imply both higher risk and successful treatment), providing inconsistent 
+            and non-interpretable signals.
+        - Education features are also constantly ranking low, but this does not allign with
+          literature since education can be a predictor of death. This it is kept in
+        
+        Therefore only REVSTRK, PREVMI and BPMEDS were excluded to improve model stability and interpretability.
+         """)
+
 # Modelling
 st.title("Modelling")
 
@@ -560,7 +586,7 @@ SelectedModel = st.selectbox("Please select a model:",
                             modeltypes,
                             key="modelsel")
 
-subsets = ["All features", "Top 15 wrapper features", "Top 15 filter features"] # NEEDS TO BE UPDATED
+subsets = ["All features", "Top 15 wrapper features", "Top 15 filter features", "Final selection"] # NEEDS TO BE UPDATED
 SelectedSubset = st.selectbox("Please select the features to be used:", 
                             subsets, 
                             key = "subsetsel")
@@ -585,6 +611,12 @@ def ModelOutput(modelselectionanswer, subsetselectionanswer):
             subsetused = Top15RFCWrap
     elif subsetselectionanswer == "Top 15 filter features":
         subsetused = Top15Filter
+    else:
+        train_X_custom = train_X.drop(columns = [
+            "PREVSTRK_prevalent disease",
+            "PREVMI_prevalent disease",
+            "BPMEDS_not currently used"])
+        subsetused = train_X_custom.columns
 
     #Everything after this for models, needs to be done for every model
     model.fit(train_X[subsetused], train_y)

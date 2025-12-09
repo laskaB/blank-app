@@ -521,8 +521,16 @@ def compute_feature_rankings(train_X, train_y):
         featureRankingWrapperSVM,
         featureRankingWrapperRFC
     )
+
 #All rankings are already run even if not selected to reduce load time and we can use them later on for modeling
 featureRankingWrapperLog, featureRankingWrapperSVM, featureRankingWrapperRFC = compute_feature_rankings(train_X, train_y)
+
+#Extracting top15 lists
+Top15LogWrap = featureRankingWrapperLog.sort_values(by = "Feature ranking", ascending = True).head(15).index.tolist()
+Top15SVMWrap = featureRankingWrapperSVM.sort_values(by = "Feature ranking", ascending = True).head(15).index.tolist()
+Top15RFCWrap = featureRankingWrapperRFC.sort_values(by = "Feature ranking", ascending = True).head(15).index.tolist()
+Top15Filter = featureScores.sort_values(by = 'ANOVA Score', ascending = False).head(15).index.tolist()
+
 
 #Selecting which to display
 modeltypes = ["Logistic Regression", "SVM", "RFC"]
@@ -552,7 +560,7 @@ SelectedModel = st.selectbox("Please select a model:",
                             modeltypes,
                             key="modelsel")
 
-subsets = ["All features", "Set 1", "Set 2"] # NEEDS TO BE UPDATED
+subsets = ["All features", "Top 15 wrapper features", "Top 15 filter features"] # NEEDS TO BE UPDATED
 SelectedSubset = st.selectbox("Please select the features to be used:", 
                             subsets, 
                             key = "subsetsel")
@@ -567,6 +575,16 @@ def ModelOutput(modelselectionanswer, subsetselectionanswer):
 
     if subsetselectionanswer == "All features":
         subsetused = train_X.columns
+    #Check to see what model is used, because wrapper changes per model
+    elif subsetselectionanswer == "Top 15 wrapper features":
+        if modelselectionanswer == "Logistic Regression":
+            subsetused = Top15LogWrap
+        elif modelselectionanswer == "SVM":
+            subsetused = Top15SVMWrap
+        else:
+            subsetused = Top15RFCWrap
+    elif subsetselectionanswer == "Top 15 filter features":
+        subsetused = Top15Filter
 
     #Everything after this for models, needs to be done for every model
     model.fit(train_X[subsetused], train_y)
@@ -579,24 +597,19 @@ def ModelOutput(modelselectionanswer, subsetselectionanswer):
     Fig = ConfusionMatrixDisplay.from_estimator(model, test_X[subsetused], test_y)
     Fig = Fig.figure_ 
 
-    #Since its now a dictionairy, we have to change the keys by removing the old ones
-    #All the others are also done, to keep the order the same. Otherwise survived and died would be at the end.
+    #Since its now a dictionairy, we have to change the keys by removing and replacing the old ones
+    #All the others are also done to keep the order the same. Otherwise survived and died would be at the end.
     #There is probably a more efficient way to do this but I could not find it
-    #To avoid having to do this for every model I made a function:
-    def Process_classification_report(Dict, Fig):
-        Acc = Dict["accuracy"]
+    Acc = Dict["accuracy"]
                             
-        Dict["survived"] = Dict.pop("0")
-        Dict["died"] = Dict.pop("1")
-        Dict.pop("accuracy")
-        Dict["macro avg"] = Dict.pop("macro avg")
-        Dict["weighted avg"] = Dict.pop("weighted avg")
+    Dict["survived"] = Dict.pop("0")
+    Dict["died"] = Dict.pop("1")
+    Dict.pop("accuracy")
+    Dict["macro avg"] = Dict.pop("macro avg")
+    Dict["weighted avg"] = Dict.pop("weighted avg")
 
-        st.write("Accuracy = " + str(round(Acc, 4)))
-        st.table(Dict)
-        st.pyplot(Fig)
-
-    # using the function
-    Process_classification_report(Dict, Fig)
+    st.write("Accuracy = " + str(round(Acc, 4)))
+    st.table(Dict)
+    st.pyplot(Fig)
 
 ModelOutput(SelectedModel, SelectedSubset)

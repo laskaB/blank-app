@@ -645,3 +645,46 @@ def ModelOutput(modelselectionanswer, subsetselectionanswer):
     st.pyplot(Fig)
 
 ModelOutput(SelectedModel, SelectedSubset)
+
+st.title("Cross validation")
+
+from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import cross_validate
+
+# New final model since the last is only in the function and not saved outside
+ModelFinal = RandomForestClassifier(n_estimators=200, random_state=42,  class_weight="balanced", max_depth= 10)
+
+# Scoring methods that are used, macro is because of class inbalance
+scoring = ["accuracy", "roc_auc", "f1_macro", "precision_macro", "recall_macro"]
+
+#cross validation used
+cv = RepeatedKFold(n_splits=5, n_repeats=10, random_state=42)
+
+#Same code as before but now outside of the function
+# and if statements so it is saved and can be used
+train_X_crossval = train_X.drop(columns = [
+            "PREVSTRK_prevalent disease",
+            "PREVMI_prevalent disease",
+            "BPMEDS_not currently used"])
+
+# Evaluate the model using cross-validation on the training data
+scores_initial = cross_validate(ModelFinal, train_X_crossval, train_y, scoring=scoring, cv=cv, n_jobs=-1)
+
+# making it a dataframe so I can use mean and std
+scores_df = pd.DataFrame(scores_initial)
+st.dataframe(scores_df)
+
+# Extracting the scores from that dataframe, might be a better way than this manual way
+MeanAcc = scores_df[accuracy].mean()
+MeanRoc = scores_df[roc_auc].mean()
+Meanf1 = scores_df[f1_macro].mean()
+MeanPrecision_macro = scores_df[precision_macro].mean()
+MeanAccRecall_macro = scores_df[recall_macro].mean()
+StdAcc = scores_df[accuracy].std()
+StdRoc = scores_df[roc_auc].std()
+Stdf1 = scores_df[f1_macro].std()
+StdPrecision_macro = scores_df[precision_macro].std()
+StdAccRecall_macro = scores_df[recall_macro].std()
+
+# Writing it down in a nice format
+st.write("Accuracy: " + MeanAcc + " ± " + StdAcc)

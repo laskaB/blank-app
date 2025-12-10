@@ -667,24 +667,42 @@ train_X_crossval = train_X.drop(columns = [
             "PREVMI_prevalent disease",
             "BPMEDS_not currently used"])
 
-# Evaluate the model using cross-validation on the training data
-scores_initial = cross_validate(ModelFinal, train_X_crossval, train_y, scoring=scoring, cv=cv, n_jobs=-1)
+# This is again a step that takes long so its cached,
+#  nothing is passed to the function because that is giving 
+# an error that it cannot be hashed?
+# So now eveything is directly in the function already, we just need to run it
+@st.cache_data
+def run_cv():
+    return cross_validate(
+        ModelFinal,
+        train_X_crossval,
+        train_y,
+        scoring=scoring,
+        cv=cv,
+        n_jobs=-1
+    )
+
+# Running it once
+scores_initial = run_cv()
 
 # making it a dataframe so I can use mean and std
 scores_df = pd.DataFrame(scores_initial)
-st.dataframe(scores_df)
 
 # Extracting the scores from that dataframe, might be a better way than this manual way
-MeanAcc = scores_df[accuracy].mean()
-MeanRoc = scores_df[roc_auc].mean()
-Meanf1 = scores_df[f1_macro].mean()
-MeanPrecision_macro = scores_df[precision_macro].mean()
-MeanAccRecall_macro = scores_df[recall_macro].mean()
-StdAcc = scores_df[accuracy].std()
-StdRoc = scores_df[roc_auc].std()
-Stdf1 = scores_df[f1_macro].std()
-StdPrecision_macro = scores_df[precision_macro].std()
-StdAccRecall_macro = scores_df[recall_macro].std()
+MeanAcc = scores_df["test_accuracy"].mean()
+MeanRoc = scores_df["test_roc_auc"].mean()
+Meanf1 = scores_df["test_f1_macro"].mean()
+MeanPrecision_macro = scores_df["test_precision_macro"].mean()
+MeanRecall_macro = scores_df["test_recall_macro"].mean()
+StdAcc = scores_df["test_accuracy"].std()
+StdRoc = scores_df["test_roc_auc"].std()
+Stdf1 = scores_df["test_f1_macro"].std()
+StdPrecision_macro = scores_df["test_precision_macro"].std()
+StdRecall_macro = scores_df["test_recall_macro"].std()
 
 # Writing it down in a nice format
-st.write("Accuracy: " + MeanAcc + " ± " + StdAcc)
+st.write("Accuracy: " + str(round(MeanAcc, 4)) + " ± " + str(round(StdAcc, 3)))
+st.write("ROC AUC: " + str(round(MeanRoc, 4)) + " ± " + str(round(StdRoc, 3)))
+st.write("F1 Macro: " + str(round(Meanf1, 4)) + " ± " + str(round(Stdf1, 3)))
+st.write("Precision Macro: " + str(round(MeanPrecision_macro, 4)) + " ± " + str(round(StdPrecision_macro, 3)))
+st.write("Recall Macro: " + str(round(MeanRecall_macro, 4)) + " ± " + str(round(StdRecall_macro, 3)))

@@ -447,7 +447,12 @@ st.write("""
          -
          """)
 
-st.write("Filter feature selection shows....") # TO BE WRITTEN
+st.write("""
+        The ANOVA filter ranks features by testing if mean values differ
+        significantly between target groups. Each feature is evaluated seperately
+        so the ranking depends only on the statistical test, not on the predictive model 
+        or interactions between features.
+         """)
 
 # Select best features based on ANOVA score
 from sklearn.feature_selection import SelectKBest
@@ -581,6 +586,22 @@ st.write("""
 
 # Modelling
 st.title("Modelling")
+st.write("""
+        In this section, different models were made by selecting different
+        model types and feature sets to find the best model.
+         
+        The models (from SKlearn):
+        - Support Vector Classifier with a linear kernel
+        - Logistig Regression
+        - Random Forest Classifier with 200 estimators, random state 1 and a max depth of 10
+        - All models use a balanced class weight
+         
+         Performance is judged on:
+         - Accuracy
+         - Precision
+         - Recall
+         - F1-score
+         """)
 
 SelectedModel = st.selectbox("Please select a model:", 
                             modeltypes,
@@ -593,11 +614,11 @@ SelectedSubset = st.selectbox("Please select the features to be used:",
 def ModelOutput(modelselectionanswer, subsetselectionanswer):
     #Checkign selected model
     if modelselectionanswer == "Logistic Regression":
-        model = LogisticRegression(class_weight='balanced', max_iter=1000)
+        model = LogisticRegression(class_weight='balanced')
     elif modelselectionanswer == "SVM":
-        model = SVC(class_weight='balanced', kernel="linear", probability=True)
+        model = SVC(class_weight='balanced', kernel="linear")
     else:
-            model = RandomForestClassifier(n_estimators=200, random_state=42,  class_weight="balanced", max_depth= 10)
+            model = RandomForestClassifier(n_estimators=200, random_state=1,  class_weight="balanced", max_depth= 10)
 
     if subsetselectionanswer == "All features":
         subsetused = train_X.columns
@@ -646,19 +667,38 @@ def ModelOutput(modelselectionanswer, subsetselectionanswer):
 
 ModelOutput(SelectedModel, SelectedSubset)
 
-st.title("Cross validation")
+st.write("""From this we concluded that out best model was a RFC using out 
+         costum final feature set""")
+
+
+st.write("""
+         *Cross validation*
+         - 
+         
+         To check if this final model also performs well over different train-test splits, 
+         we also performed cross validation.
+
+         We did this by using cross_validate from sklearn with the following cross validate method:
+         - RepeatedKFold from sklearn
+         - 5 splits
+         - 10 repeats
+         - Randomstate of 1
+
+        Final model cross validation performance:
+        
+         """)
 
 from sklearn.model_selection import RepeatedKFold
 from sklearn.model_selection import cross_validate
 
 # New final model since the last is only in the function and not saved outside
-ModelFinal = RandomForestClassifier(n_estimators=200, random_state=42,  class_weight="balanced", max_depth= 10)
+ModelFinal = RandomForestClassifier(n_estimators=200, random_state=1,  class_weight="balanced", max_depth= 10)
 
 # Scoring methods that are used, macro is because of class inbalance
 scoring = ["accuracy", "roc_auc", "f1_macro", "precision_macro", "recall_macro"]
 
 #cross validation used
-cv = RepeatedKFold(n_splits=5, n_repeats=10, random_state=42)
+cv = RepeatedKFold(n_splits=5, n_repeats=10, random_state=1)
 
 #Same code as before but now outside of the function
 # and if statements so it is saved and can be used
@@ -685,7 +725,7 @@ def run_cv():
 # Running it once
 scores_initial = run_cv()
 
-# making it a dataframe so I can use mean and std
+# making it a dataframe so I can use mean() and std()
 scores_df = pd.DataFrame(scores_initial)
 
 # Extracting the scores from that dataframe, might be a better way than this manual way
@@ -700,7 +740,7 @@ Stdf1 = scores_df["test_f1_macro"].std()
 StdPrecision_macro = scores_df["test_precision_macro"].std()
 StdRecall_macro = scores_df["test_recall_macro"].std()
 
-# Writing it down in a nice format
+# Writing it down in a nice and rounded format
 st.write("Accuracy: " + str(round(MeanAcc, 4)) + " ± " + str(round(StdAcc, 3)))
 st.write("ROC AUC: " + str(round(MeanRoc, 4)) + " ± " + str(round(StdRoc, 3)))
 st.write("F1 Macro: " + str(round(Meanf1, 4)) + " ± " + str(round(Stdf1, 3)))
